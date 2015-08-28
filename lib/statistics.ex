@@ -118,7 +118,7 @@ defmodule Statistics do
   If a non-empty list is provided, it is a call to Enum.min/1
   """
   def min([]), do: nil
-  def min(list) do
+  def min(list) when is_list(list) do
     Enum.min(list)
   end
 
@@ -133,7 +133,7 @@ defmodule Statistics do
   If a non-empty list is provided, it is a call to Enum.max/1
   """
   def max([]), do: nil
-  def max(list) do
+  def max(list) when is_list(list) do
     Enum.max(list)
   end
 
@@ -227,11 +227,11 @@ defmodule Statistics do
       56.48979591836735
 
   """
-  def variance([]), do: nil
   def variance(list) when is_list(list) do
     do_variance(list, mean(list))
   end
 
+  defp do_variance([], _), do: nil
   defp do_variance(list, list_mean) do
     list |> Enum.map(fn x -> (list_mean - x) * (list_mean - x) end) |> mean
   end
@@ -290,11 +290,11 @@ defmodule Statistics do
       4.5204836768674568
 
   """
-  def harmonic_mean([]), do: nil
   def harmonic_mean(list) when is_list(list) do
     do_harmonic_mean(list, 0, 0)
   end
 
+  defp do_harmonic_mean([], 0, 0), do: nil
   defp do_harmonic_mean([], t, l), do: l / t
   defp do_harmonic_mean([x|xs], t, l) do
     do_harmonic_mean(xs, t + 1/x, l + 1)
@@ -313,11 +313,11 @@ defmodule Statistics do
       1.8171205928321397
 
   """
-  def geometric_mean([]), do: nil
   def geometric_mean(list) when is_list(list) do
     do_geometric_mean(list, 1, 0)
   end
 
+  defp do_geometric_mean([], 1, 0), do: nil
   defp do_geometric_mean([], p, l), do: Math.pow(p, 1/l)
   defp do_geometric_mean([x|xs], p, l) do
     do_geometric_mean(xs, p * x, l + 1)
@@ -424,15 +424,14 @@ defmodule Statistics do
   def correlation(x, y) when length(x) == length(y) do
     xmean = mean(x)
     ymean = mean(y)
-    numer = Enum.zip(x, y)
-            |> Enum.map(fn {xi, yi} -> (xi - xmean) * (yi - ymean) end)
-            |> sum
-    denom_x = x
-              |> Enum.map(fn xi -> (xi - xmean) * (xi - xmean) end)
-              |> sum
-    denom_y = y
-              |> Enum.map(fn yi -> (yi - ymean) * (yi - ymean) end)
-              |> sum
+
+    reducer = fn {xi, yi}, {numer, denom_x, denom_y} ->
+      xval = xi - xmean
+      yval = yi - ymean
+      {numer + xval * yval, denom_x + xval * xval, denom_y + yval * yval}
+    end
+
+    {numer, denom_x, denom_y} = List.foldl(Enum.zip(x, y), {0, 0, 0}, reducer)
 
     numer / Math.sqrt(denom_x * denom_y)
   end
@@ -454,10 +453,11 @@ defmodule Statistics do
     ymean = mean(y)
     size = length(x)
 
-    Enum.zip(x, y)
-    |> Enum.map(fn {xi, yi} -> (xi - xmean) * (yi - ymean) end)
-    |> Enum.map(fn i -> i / (size - 1) end)
-    |> sum
+    reducer = fn {xi, yi}, t ->
+      t + ((xi - xmean) * (yi - ymean) / (size - 1))
+    end
+
+    Enum.zip(x, y) |> List.foldl(0, reducer)
   end
 
 
